@@ -15,10 +15,14 @@ export interface AccountType {
 
 export default function Home() {
   const [accountData, setAccountData] = useState<AccountType>({});
-  const [message, setMessage] = useState<string>("");
+  const [owner, setOwner] = useState<string>("");
+  const [URI, setURI] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const nftAddress = "0xC922aD2E86A8Dfc7003C6024938eF5fFE1b2110e";
 
   const _connectToMetaMask = useCallback(async () => {
-    const ethereum = window.ethereum;
+    const ethereum = (window as any).ethereum;
     // Check if MetaMask is installed
     if (typeof ethereum !== "undefined") {
       try {
@@ -50,21 +54,36 @@ export default function Home() {
     }
   }, []);
 
-  const _sendMessageToMetaMask = useCallback(async () => {
-    const ethereum = await window.ethereum;
+  const _safeMint = useCallback(async () => {
+    const ethereum = await (window as any).ethereum;
     // Create an ethers.js provider using the injected provider from MetaMask
     // And get the signer (account) from the provider
     const signer = await new ethers.BrowserProvider(ethereum).getSigner();
-    try {
-      // Sign the message
-      await signer.signMessage(message);
-    } catch (error) {
-      alert("User denied message signature.");
-    }
-  }, [message]);
+    const abi = [
+      "function safeMint(address to, string memory uri) public"
+    ];
+    const NFTContract = new ethers.Contract(nftAddress, abi, signer);
 
-  const _onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMessage(e.target.value);
+    try {
+      setLoading(true);
+      const tx = await NFTContract.safeMint(owner, URI);
+      await tx.wait();
+      alert(`NFT minted: ${tx.hash}`);
+      setOwner("");
+      setURI("");
+    } catch (error) {
+      alert(`Error minting NFT: ${String(error)}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [owner, URI]);
+
+  const _onChangeOwner = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setOwner(e.target.value);
+  };
+
+  const _onChangeURI = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setURI(e.target.value);
   };
 
   return (
@@ -74,34 +93,55 @@ export default function Home() {
       <Header {...accountData} />
       <div className="flex flex-col flex-1 justify-center items-center">
         <div className="grid gap-4">
-          <Image
-            src="https://images.ctfassets.net/9sy2a0egs6zh/4zJfzJbG3kTDSk5Wo4RJI1/1b363263141cf629b28155e2625b56c9/mm-logo.svg"
-            alt="MetaMask"
-            width={320}
-            height={140}
-            priority
-          />
           {accountData?.address ? (
             <>
+              <span className="text-lg">
+                NFT address: {nftAddress}
+              </span>
               <input
                 type="text"
-                onChange={_onChange}
+                onChange={_onChangeOwner}
                 className="border-black border-2 rounded-lg p-2"
+                placeholder="Owner Address"
+              />
+              <input
+                type="text"
+                onChange={_onChangeURI}
+                className="border-black border-2 rounded-lg p-2"
+                placeholder="URI"
               />
               <button
-                onClick={_sendMessageToMetaMask}
+                onClick={_safeMint}
+                disabled={!owner || !URI || loading}
                 className="bg-black text-white p-4 rounded-lg"
               >
-                Send Message
+                {(loading) ? `Waiting...`:'Mint NFT'}
               </button>
+
+              <Image
+                src={URI ? `https://ipfs.io/ipfs/${URI}`: ""}
+                alt="NFT"
+                width={320}
+                height={160}
+                hidden={!URI}
+              />
             </>
           ) : (
-            <button
-              onClick={_connectToMetaMask}
-              className="bg-black text-white p-4 rounded-lg"
-            >
-              Connect to MetaMask
-            </button>
+            <>
+              <Image
+                src="https://images.ctfassets.net/9sy2a0egs6zh/4zJfzJbG3kTDSk5Wo4RJI1/1b363263141cf629b28155e2625b56c9/mm-logo.svg"
+                alt="MetaMask"
+                width={320}
+                height={140}
+                priority
+              />
+              <button
+                onClick={_connectToMetaMask}
+                className="bg-black text-white p-4 rounded-lg"
+              >
+                Connect to MetaMask
+              </button>
+            </>
           )}
         </div>
       </div>
