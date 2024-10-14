@@ -18,8 +18,10 @@ export default function Home() {
   const [owner, setOwner] = useState<string>("");
   const [URI, setURI] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [imgURI, setImgURI] = useState<string>("");
 
-  const nftAddress = "0xC922aD2E86A8Dfc7003C6024938eF5fFE1b2110e";
+  const nftAddress = "0x3CAC571aca6AEc944874f5597c17F6ee52162F48";
+  const baseHash = "QmYHhfio7XL6v58SN8Ry794f4eQZ4DjjkmVX2ARsNXrgkt";
 
   const _connectToMetaMask = useCallback(async () => {
     const ethereum = (window as any).ethereum;
@@ -69,8 +71,6 @@ export default function Home() {
       const tx = await NFTContract.safeMint(owner, URI);
       await tx.wait();
       alert(`NFT minted: ${tx.hash}`);
-      setOwner("");
-      setURI("");
     } catch (error) {
       alert(`Error minting NFT: ${String(error)}`);
     } finally {
@@ -84,6 +84,29 @@ export default function Home() {
 
   const _onChangeURI = (e: React.ChangeEvent<HTMLInputElement>) => {
     setURI(e.target.value);
+    setImgURI("");
+    setLoading(true);
+    fetch(`https://ipfs.io/ipfs/${baseHash}/${e.target.value}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        console.error(data.error);
+        return;
+      }
+
+      if (!data.image) {
+        console.error("No image found in the metadata");
+        return;
+      }
+
+      setImgURI(data.image.split('//')[1]);
+    })
+    .catch((err) => {
+      console.error(err);
+    })
+    .finally(() => {
+      setLoading(false);
+    });
   };
 
   return (
@@ -108,7 +131,7 @@ export default function Home() {
                 type="text"
                 onChange={_onChangeURI}
                 className="border-black border-2 rounded-lg p-2"
-                placeholder="URI"
+                placeholder="TokenID"
               />
               <button
                 onClick={_safeMint}
@@ -119,11 +142,11 @@ export default function Home() {
               </button>
 
               <Image
-                src={URI ? `https://ipfs.io/ipfs/${URI}`: ""}
+                src={imgURI ? `https://ipfs.io/ipfs/${imgURI}`: ""}
                 alt="NFT"
                 width={320}
                 height={160}
-                hidden={!URI}
+                hidden={!imgURI}
               />
             </>
           ) : (
